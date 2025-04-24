@@ -11,6 +11,7 @@ char pass[] = "";
 
 #define FLAME_SENSOR_PIN D1  // GPIO5
 #define MQ2_SENSOR_PIN A0    // Analog pin
+#define BUZZER_PIN D0        // GPIO16
 
 bool flameAlertSent = false;
 bool smokeAlertSent = false;
@@ -21,15 +22,19 @@ void sendSensorData() {
   int smokeLevel = analogRead(MQ2_SENSOR_PIN);
   int flameStatus = digitalRead(FLAME_SENSOR_PIN); // LOW means flame detected
   Serial.println(smokeLevel);
+  
   // Send data to Blynk app
   Blynk.virtualWrite(V1, smokeLevel);
   Blynk.virtualWrite(V0, flameStatus == LOW ? 255 : 0); // LED ON if flame detected
+
+  bool alert = false;
 
   // Fire alert
   if (flameStatus == LOW && !flameAlertSent) {
     Blynk.logEvent("fire_detected", "Fire Detected!");
     Serial.println("Fire Detected!");
     flameAlertSent = true;
+    alert = true;
   } else if (flameStatus == HIGH) {
     flameAlertSent = false;
   }
@@ -39,8 +44,16 @@ void sendSensorData() {
     Blynk.logEvent("smoke_detected", "Smoke Detected!");
     Serial.println("Smoke Detected!");
     smokeAlertSent = true;
+    alert = true;
   } else if (smokeLevel <= 500) {
     smokeAlertSent = false;
+  }
+
+  // Control buzzer
+  if (flameStatus == LOW || smokeLevel > 500) {
+    digitalWrite(BUZZER_PIN, HIGH);  // Turn buzzer ON
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);   // Turn buzzer OFF
   }
 }
 
@@ -49,6 +62,8 @@ void setup() {
   Serial.println("Starting....");
   pinMode(FLAME_SENSOR_PIN, INPUT);
   pinMode(MQ2_SENSOR_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
 
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
 
